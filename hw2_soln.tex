@@ -1,0 +1,191 @@
+\documentclass[10pt]{article}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{ulem}
+\usepackage{framed}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{subfigure}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage[capitalise,noabbrev]{cleveref}
+\usepackage[usenames,dvipsnames]{xcolor}
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage[letterpaper, margin=1in]{geometry}
+
+
+\renewcommand{\familydefault}{ppl}
+
+\newcommand{\bx}{{\boldsymbol x}}
+\newcommand{\bw}{{\boldsymbol w}}
+\newcommand{\bmu}{{\boldsymbol \mu}}
+\newcommand{\bbeta}{{\boldsymbol \beta}}
+\newcommand{\btheta}{{\boldsymbol \theta}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand{\solution}[1]{{\color{PineGreen} \textbf{Solution:} #1}}
+
+\newcommand{\todo}[1]{\textbf{\textcolor{MidnightBlue}{to do: #1}} }
+
+\begin{document}
+
+\section*{Machine Learning Spring 2019 Homework 2}
+
+Homework must be submitted electronically on Canvas. Make sure to explain you reasoning or show your derivations. Except for answers that are especially straightforward, you will lose points for unjustified answers, even if they are correct. 
+
+\section*{Written Problems}
+
+\begin{enumerate}
+
+\item Multiclass logistic regression has the form
+\begin{align}
+p(y | \bx; W) := \frac{\exp(\bw_y^\top \bx)}{\sum_{c = 1}^C \exp(\bw_c^\top \bx)} ~,
+\label{eq:mclogistic} 
+\end{align}
+where $W$ is a set of weight vectors $\{\bw_1, \ldots, \bw_C\}$ for each class. 
+
+\begin{enumerate}
+
+\item (5 points) You have a batch of $n$ data points and labels $\{(\bx_1, y_1), \ldots, (\bx_n, y_n)\}$. Write the conditional log-likelihood of the labels given the features and simplify it. Show and explain the steps you take to simplify the expression. You should end up with an expression very similar to \cref{eq:nll}.
+
+\solution{
+(Note because we number equations in order, the equation numbers of the formulas given in the programming assignment have changed in this solutions document.)
+
+The data likelihood is the probability of the entire dataset given the parameters
+\begin{equation}
+\begin{aligned}
+p(\{y_1, \ldots, y_n\} | \{\bx_1, \ldots, \bx_n\}) &= \prod_{i = 1}^n p(y_i | \bx_i; W)\\
+&= \prod_{i = 1}^n \frac{\exp(\bw_y^\top \bx_i)}{\sum_{c = 1}^C \exp(\bw_c^\top \bx_i)}~.
+\end{aligned}
+\end{equation}
+Taking the log of both sides, we get the log-likelihood and expand the product into the sum of log terms
+\begin{equation}
+\begin{aligned}
+\log p(\{y_1, \ldots, y_n\} | \{\bx_1, \ldots, \bx_n\}) &= \log \prod_{i = 1}^n \frac{\exp(\bw_y^\top \bx_i)}{\sum_{c = 1}^C \exp(\bw_c^\top \bx_i)}\\
+&= \sum_{i = 1}^n \log \left( \frac{\exp(\bw_y^\top \bx_i)}{\sum_{c = 1}^C \exp(\bw_c^\top \bx_i)} \right) \\
+&= \sum_{i = 1}^n \log \left(\exp(\bw_y^\top \bx_i)\right) - \log \left( \sum_{c = 1}^C \exp(\bw_c^\top \bx_i) \right) \\
+&= \sum_{i = 1}^n \bw_y^\top \bx_i - \sum_{i = 1}^n \log \left( \sum_{c = 1}^C \exp(\bw_c^\top \bx_i) \right) ~.
+\end{aligned}
+\end{equation}
+This final expression can't be simplified further. The difference between this and \cref{eq:nll} is that it is the positive log-likelihood and we have not added a regularizer.
+}
+
+\item (5 points) Derive the gradient of the logistic regression likelihood with respect to any one of the $\bw_c$ vectors. It should look very similar to \cref{eq:lrgrad} or \cref{eq:simplified-lrgrad} below (either form is acceptable for full credit). Show and explain the steps you take to derive the gradient.
+
+\solution{
+First, we rewrite the objective, the \textit{positive} log-likelihood for convenience, replacing the iterator variable over classes with $c'$ to avoid confusion:
+\[
+L(D) = \sum_{i = 1}^n \bw_y^\top \bx_i - \sum_{i = 1}^n \log \left( \sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)~.
+\]
+We can take the gradient with respect to $\bw_c$ of each summation separately. The first term $\sum_{i = 1}^n \bw_y^\top \bx_i$ has zero-gradient for $\bw_c$ when $y \neq c$, and otherwise it's just a linear product of the weight vector. Thus the gradient is
+\[
+\nabla_{\bw_c} \sum_{i = 1}^n \bw_y^\top \bx_i = \sum_{i = 1} I(y_i = c) \bx_i,
+\]
+where $I$ is the indicator function that is 1.0 if its input is true and 0.0 if it is false. This gradient sums together the input $\bx_i$s that are in class $c$. 
+
+The second term requires applying the chain rule. We can consider each term inside the summation over $i$ separately. In this case, the $\log$ is our outer function, and the inner function is $\sum_{c'=1}^C \exp(\bw_{c'}^\top \bx_i)$, then the chain rule gives us
+\begin{equation}
+\begin{aligned}
+\frac{d ~ \log \left( \sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right) }{d ~ \bw_c} &= 
+\frac{d ~ \log \left( \sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right) }{d ~ \left(\sum_{'c = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)} \cdot \frac{d ~ \left(\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)}{d ~ \bw_c}
+\end{aligned}
+\end{equation}
+The derivative of $\log(x)$ is $\tfrac{1}{x}$, so we can first simplify to
+\begin{equation}
+\begin{aligned}
+\frac{d ~ \log \left( \sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right) }{d ~ \left(\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)} \cdot \frac{d ~ \left(\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)}{d ~ \bw_c}
+= \frac{1}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)} \cdot \frac{d ~ \left(\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)}{d ~ \bw_c}\\
+\end{aligned}
+\end{equation}
+Then the gradient for the second part can be simplified using a few steps. First, note that the summation over $c'$ in the numerator only interacts with $\bw_c$ when $c' = c$, which allows us to eliminate the sum over $c'$ and only consider the case where $c'= c$
+\[
+\frac{d ~ \left(\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right)}{d ~ \bw_c} = 
+\frac{d ~ \exp(\bw_{c}^\top \bx_i)}{d ~ \bw_c}
+\]
+Next, we can apply the chain rule again, noting that the derivative of $\exp(x) = \exp(x)$
+\[
+\frac{d ~ \exp(\bw_{c}^\top \bx_i)}{d ~ \bw_c} = \exp(\bw_{c}^\top \bx_i) \bx_i.
+\]
+Putting the pieces back together, we have 
+\begin{equation}
+\begin{aligned}
+\frac{d ~ \log \left( \sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i) \right) }{d ~ \bw_c}
+&= \frac{1}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)} \cdot \exp(\bw_{c}^\top \bx_i) \bx_i\\
+&= \frac{\exp(\bw_{c}^\top \bx_i) \bx_i}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)} 
+\end{aligned}
+\end{equation}
+Then plugging this back into the full gradient expression, combining summations, and pulling out common factors, we get
+\begin{equation}
+\begin{aligned}
+\nabla_{\bw_c} L(D) &= \sum_{i = 1} I(y_i = c) \bx_i - \sum_{i=1}^n \frac{\exp(\bw_{c}^\top \bx_i) \bx_i}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)}\\
+&= \sum_{i = 1} \left( I(y_i = c) \bx_i -  \frac{\exp(\bw_{c}^\top \bx_i)}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)} \cdot \bx_i \right)\\
+&= \sum_{i = 1} \bx_i \left( I(y_i = c) -  \frac{\exp(\bw_{c}^\top \bx_i)}{\sum_{c' = 1}^C \exp(\bw_{c'}^\top \bx_i)} \right)\\
+&= \sum_{i = 1} \bx_i \left( I(y_i = c) -  p(y_i = c |\bx_i ; W) \right),
+\end{aligned}
+\end{equation}
+where in the last step, we used the fact that the expression being subtracted is the defined conditional probability estimate of the logistic regression model. Your solution did not need to be as thorough as this very precise step-by-step derivation for full credit.
+}
+
+
+\item (5 points) We often add a regularizer (as we do below for the programming portion) that penalizes the magnitude of the weight vectors. These regularizers ``prefer'' the weights to be the all-zeros vector. What is the estimated probability of this all-zeros solution? Explain in one to three sentences why this probability is reasonable as the maximally regularized solution.
+
+\solution{
+When $\bw_c = \vec{0}$ for all classes, we get uniform probability for each class independently of the input data. 
+
+This uniform prediction is a reasonable output for a maximally regularized solution because it represents the maximum amount of uncertainty. Given no other information (e.g., no data or completely random, noisy data) it makes sense to simply predict uniform probabilities, since nothing has told us to do otherwise. 
+
+It's possible to make a variety of arguments for (or even against?) whether the uniform predictor is the right predictor to regularize toward. The important criterion for credit on this problem is to demonstrate understanding and critical thinking. 
+}
+
+\end{enumerate}
+
+\end{enumerate}
+
+\section*{Programming Assignment}
+
+For this assignment, you will run an experiment comparing two different versions of linear classifiers for multiclass classification. 
+
+\subsection*{Models}
+
+The two models you will implement are perceptron and logistic regression. The multiclass forms of these models are summarized here.
+
+\paragraph{Multiclass Perceptron} The multiclass perceptron uses a weight vector for each class, which can conveniently be represented with a matrix $W = \{\bw_1, \ldots, \bw_C\}$. The prediction function is
+\begin{align}
+f_{\mathrm{perc}}(\bx) := \argmax_{c \in \{1, \ldots, C\}} \bw_c^\top \bx = \argmax_{c \in \{1, \ldots, C\}} \left[ W^\top \bx \right]_{c}.
+\end{align}
+The multiclass perceptron update rule when learning from example $\bx_t$, ground-truth label $y_t$ is.
+\begin{align}
+\bw_{y_t} &\leftarrow \bw_{y_t} + \bx_t\\
+\bw_{\left(f_{\mathrm{perc}}(\bx)\right)} &\leftarrow \bw_{\left(f_{\mathrm{perc}}(\bx)\right)} - \bx_t
+\end{align}
+
+\paragraph{Multiclass Logistic Regression} Multiclass logistic regression also uses a weight vector for each class, and in fact has the same prediction formula as perceptron.
+\begin{align}
+f_{\mathrm{lr}}(\bx) := \argmax_{c \in \{1, \ldots, C\}} \bw_c^\top \bx = \argmax_{c \in \{1, \ldots, C\}} \left[ W^\top \bx \right]_{c}.
+\end{align}
+The key difference from perceptron is that it is built around a probabilistic interpretation:
+\begin{align}
+p_{\mathrm{lr}}(y | \bx; W) := \frac{\exp(\bw_y^\top \bx)}{\sum_{c = 1}^C \exp(\bw_c^\top \bx)} ~ .
+\end{align}
+For data set $D = \{(\bx_1, y_1), \ldots, (\bx_n, y_n)\}$, the regularized negative log likelihood is
+\begin{align}
+L(D) &= \frac{\lambda}{2} ||W||^2_{\textrm{F}} + \sum_{i=1}^n \log \left(\sum_{c} \exp(\bw_{c}^\top \bx_i)\right) - \sum_{i = 1}^n \bw_{y_i}^\top \bx_i 
+\label{eq:nll}
+\end{align}
+where $||W||^2_{\textrm{F}}$ is the squared Frobenius norm $\sum_{ij} \bw_i[j]^2$, 
+and the gradient of the log likelihood is
+\begin{align}
+\nabla_{\bw_c} L &= \lambda \bw_c + \sum_{i = 1}^n  \bx_i \left(\frac{\exp(\bw_{c}^\top \bx_i)}{\sum_{c'} \exp(\bw_{c'}^\top \bx_i)} - I(y_i = c) \right) \label{eq:lrgrad}
+\\
+ &= \lambda \bw_c + \sum_{i = 1}^n  \bx_i \left(p_{\textrm{lr}}(y | \bx_i; W) - I(y_i = c) \right)
+ \label{eq:simplified-lrgrad}
+\end{align}
+
+\end{document}
+
+
